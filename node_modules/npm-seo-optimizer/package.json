@@ -1,0 +1,38 @@
+{
+  "name": "npm-seo-optimizer",
+  "version": "1.0.0",
+  "description": "Automatically optimize your npm package for search engine discovery",
+  "main": "index.js",
+  "scripts": {
+    "optimize": "node -e \"require('npm-seo-optimizer')()\""
+  },
+  "keywords": [
+    "seo",
+    "npm",
+    "search",
+    "optimization",
+    "google",
+    "discovery",
+    "metadata"
+  ],
+  "author": "Rony MAN",
+  "license": "MIT",
+  "dependencies": {
+    "handlebars": "^4.7.7"
+  },
+  "bin": {
+    "npm-seo-optimize": "index.js"
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ronyman-com/npm-seo-optimizer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ronyman-com/npm-seo-optimizer/issues"
+  },
+  "homepage": "https://github.com/ronyman-com/npm-seo-optimizer#readme"
+}
