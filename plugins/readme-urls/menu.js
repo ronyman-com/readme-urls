@@ -2,18 +2,16 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import readline from 'readline'; // Added for user prompts
+import readline from 'readline';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Create CLI interface for prompts
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-// Add prompt confirmation function
 async function promptConfirm(message) {
   return new Promise((resolve) => {
     rl.question(`${message} (y/N) `, (answer) => {
@@ -22,7 +20,6 @@ async function promptConfirm(message) {
   });
 }
 
-// Configuration
 const CONFIG = {
   title: "My Documentation",
   sourceDir: path.join(__dirname, '../../../../templates/default/layouts'),
@@ -41,7 +38,6 @@ async function generateSidebar() {
   console.log('Starting sidebar generation...');
   
   try {
-    // Check if source directory exists
     try {
       await fs.access(CONFIG.sourceDir);
     } catch {
@@ -64,7 +60,6 @@ async function generateSidebar() {
       await processDirectory(CONFIG.sourceDir, sidebar.items, '');
     }
 
-    // Check before overwriting
     try {
       await fs.access(CONFIG.outputFile);
       const overwrite = await promptConfirm('Sidebar.json already exists. Overwrite?');
@@ -72,7 +67,7 @@ async function generateSidebar() {
         console.log('Generation canceled');
         process.exit(0);
       }
-    } catch {} // File doesn't exist, proceed
+    } catch {}
 
     await fs.mkdir(path.dirname(CONFIG.outputFile), { recursive: true });
     await fs.writeFile(CONFIG.outputFile, JSON.stringify(sidebar, null, 2));
@@ -83,7 +78,7 @@ async function generateSidebar() {
     console.error('❌ Generation failed:', error.message);
     throw error;
   } finally {
-    rl.close(); // Close the readline interface
+    rl.close();
   }
 }
 
@@ -98,12 +93,13 @@ async function processDirectory(currentDir, parentItems, currentPath) {
 
       const itemPath = path.join(currentDir, item.name);
       const baseName = item.name.replace(/\.md$/, '');
-      const relativePath = path.join(currentPath, baseName);
+      // Convert path to use forward slashes
+      const relativePath = path.join(currentPath, baseName).replace(/\\/g, '/');
 
       if (item.isDirectory()) {
         const newItem = {
           text: formatName(item.name),
-          link: `/${relativePath}`,
+          link: `/${relativePath}${await hasIndexFile(itemPath) ? '/index' : ''}`,
           icon: 'folder',
           items: []
         };
@@ -115,7 +111,15 @@ async function processDirectory(currentDir, parentItems, currentPath) {
         }
       } 
       else if (item.isFile() && item.name.endsWith('.md')) {
-        if (isIndexFile(item.name)) continue;
+        // For index files, we now include them but with '/index' path
+        if (isIndexFile(item.name)) {
+          parentItems.push({
+            text: formatName(baseName),
+            link: `/${currentPath.replace(/\\/g, '/')}/index`,
+            icon: 'file'
+          });
+          continue;
+        }
         parentItems.push({
           text: formatName(baseName),
           link: `/${relativePath}`,
@@ -130,12 +134,27 @@ async function processDirectory(currentDir, parentItems, currentPath) {
   }
 }
 
-// Helper functions remain the same
-async function hasIndexFile(dirPath) { /* ... */ }
-function isIndexFile(filename) { /* ... */ }
-function formatName(name) { /* ... */ }
+async function hasIndexFile(dirPath) {
+  try {
+    const files = await fs.readdir(dirPath);
+    return files.some(file => isIndexFile(file));
+  } catch {
+    return false;
+  }
+}
 
-// Execution
+function isIndexFile(filename) {
+  return filename.toLowerCase() === 'index.md' || filename.toLowerCase() === 'readme.md';
+}
+
+function formatName(name) {
+  return name
+    .replace(/-/g, ' ')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, l => l.toUpperCase());
+}
+
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   generateSidebar()
     .then(() => process.exit(0))
@@ -144,5 +163,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 
 export default {
   generateSidebar,
-  promptConfirm // Export if needed elsewhere
+  promptConfirm
 };
