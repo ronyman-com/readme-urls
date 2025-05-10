@@ -29,7 +29,7 @@ your-projec/
 ├── templates/
 │   └── default/
 │       └── layouts/  # Your documentation pages
-├── sidebar.json      # Generated output
-└── sidebar.config.js # Optional configuration
+|       ├── sidebar.json      # Generated output
+└       | ── sidebar.config.js # Optional configuration
 
 ```
