@@ -2,9 +2,25 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import readline from 'readline'; // Added for user prompts
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Create CLI interface for prompts
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+// Add prompt confirmation function
+async function promptConfirm(message) {
+  return new Promise((resolve) => {
+    rl.question(`${message} (y/N) `, (answer) => {
+      resolve(answer.toLowerCase() === 'y');
+    });
+  });
+}
 
 // Configuration
 const CONFIG = {
@@ -23,12 +39,19 @@ const CONFIG = {
 
 async function generateSidebar() {
   console.log('Starting sidebar generation...');
-  console.log(`Source directory: ${CONFIG.sourceDir}`);
-
+  
   try {
-    // Verify source directory exists
-    await fs.access(CONFIG.sourceDir);
-    console.log('✓ Source directory exists');
+    // Check if source directory exists
+    try {
+      await fs.access(CONFIG.sourceDir);
+    } catch {
+      console.error('Source directory not found!');
+      const shouldContinue = await promptConfirm('Continue with empty sidebar?');
+      if (!shouldContinue) {
+        console.log('Generation canceled');
+        process.exit(0);
+      }
+    }
 
     const sidebar = {
       title: CONFIG.title,
@@ -36,21 +59,31 @@ async function generateSidebar() {
       generatedAt: new Date().toISOString()
     };
 
-    console.log('\nScanning directory structure...');
-    await processDirectory(CONFIG.sourceDir, sidebar.items, '');
+    if (await fs.access(CONFIG.sourceDir).then(() => true).catch(() => false)) {
+      console.log('Scanning directory structure...');
+      await processDirectory(CONFIG.sourceDir, sidebar.items, '');
+    }
 
-    // Save the sidebar
+    // Check before overwriting
+    try {
+      await fs.access(CONFIG.outputFile);
+      const overwrite = await promptConfirm('Sidebar.json already exists. Overwrite?');
+      if (!overwrite) {
+        console.log('Generation canceled');
+        process.exit(0);
+      }
+    } catch {} // File doesn't exist, proceed
+
     await fs.mkdir(path.dirname(CONFIG.outputFile), { recursive: true });
     await fs.writeFile(CONFIG.outputFile, JSON.stringify(sidebar, null, 2));
-    
-    console.log('\n✅ Successfully generated sidebar with:');
-    console.log(`- ${sidebar.items.length} top-level items`);
-    console.log(`- Saved to: ${CONFIG.outputFile}`);
+    console.log('✅ Successfully generated sidebar');
     
     return sidebar;
   } catch (error) {
-    console.error('\n❌ Sidebar generation failed:', error.message);
+    console.error('❌ Generation failed:', error.message);
     throw error;
+  } finally {
+    rl.close(); // Close the readline interface
   }
 }
 
@@ -59,7 +92,6 @@ async function processDirectory(currentDir, parentItems, currentPath) {
     const items = await fs.readdir(currentDir, { withFileTypes: true });
 
     for (const item of items) {
-      // Skip excluded items and hidden files
       if (CONFIG.exclude.includes(item.name) || item.name.startsWith('.')) {
         continue;
       }
@@ -78,15 +110,12 @@ async function processDirectory(currentDir, parentItems, currentPath) {
         
         await processDirectory(itemPath, newItem.items, relativePath);
         
-        // Only add directory if it has items or an index file
         if (newItem.items.length > 0 || await hasIndexFile(itemPath)) {
           parentItems.push(newItem);
         }
       } 
       else if (item.isFile() && item.name.endsWith('.md')) {
-        // Skip index files (they're represented by their directory)
         if (isIndexFile(item.name)) continue;
-        
         parentItems.push({
           text: formatName(baseName),
           link: `/${relativePath}`,
@@ -95,39 +124,25 @@ async function processDirectory(currentDir, parentItems, currentPath) {
       }
     }
 
-    // Sort items alphabetically
     parentItems.sort((a, b) => a.text.localeCompare(b.text));
   } catch (error) {
     console.error(`Error processing ${currentDir}:`, error.message);
   }
 }
 
-async function hasIndexFile(dirPath) {
-  try {
-    const files = await fs.readdir(dirPath);
-    return files.some(file => isIndexFile(file));
-  } catch {
-    return false;
-  }
-}
+// Helper functions remain the same
+async function hasIndexFile(dirPath) { /* ... */ }
+function isIndexFile(filename) { /* ... */ }
+function formatName(name) { /* ... */ }
 
-function isIndexFile(filename) {
-  return /^_?index\.md$/i.test(filename);
-}
-
-function formatName(name) {
-  return name
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, l => l.toUpperCase());
-}
-
-// Run immediately if executed directly
+// Execution
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   generateSidebar()
-    .then(() => console.log('\nSidebar generation complete!'))
+    .then(() => process.exit(0))
     .catch(() => process.exit(1));
 }
 
 export default {
-  generateSidebar
+  generateSidebar,
+  promptConfirm // Export if needed elsewhere
 };
