@@ -1,6 +1,6 @@
 {
   "name": "readme-urls",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "readME menu and sidebar generator",
   "main": "menu.js",
   "type": "module",
@@ -8,7 +8,7 @@
     "gen": "node plugins/readme-urls/menu.js"
   },
   "bin": {
-    "readme-urls": "c"
+    "readme-urls": "node plugins/readme-urls/menu.js"
   },
   "repository": {
     "type": "git",
