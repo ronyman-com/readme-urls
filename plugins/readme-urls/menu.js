@@ -22,7 +22,7 @@ async function promptConfirm(message) {
 
 const CONFIG = {
   title: "My Documentation",
-  sourceDir: path.join(__dirname, '../../../../templates/default/layouts'),
+  sourceDir: path.join(__dirname, '../../../../templates/default/'),
   outputFile: path.join(__dirname, '../../../../templates/default/sidebar.json'),
   exclude: ['_partials', 'components', 'assets', '.DS_Store'],
   defaultItems: [
@@ -34,6 +34,62 @@ const CONFIG = {
   ]
 };
 
+
+// Convert from json to .ejs
+
+async function convertToEjs(sidebarData, outputPath) {
+  try {
+    const ejsTemplate = `<%
+// Auto-generated sidebar - do not edit directly
+const sidebar = ${JSON.stringify(sidebarData, null, 2).replace(/"/g, "'")};
+const currentPath = locals.currentPath || '/';
+
+function isActive(link, current) {
+  return current === link || (link !== '/' && current.startsWith(link));
+}
+%>
+
+<div class="sidebar-nav">
+  <ul>
+    <% sidebar.items.forEach(item => { %>
+      <li class="<%= isActive(item.link, currentPath) ? 'active' : '' %>">
+        <a href="<%= item.link %>">
+          <% if (item.icon) { %>
+            <i class="icon-<%= item.icon %>"></i>
+          <% } %>
+          <%= item.text %>
+        </a>
+        <% if (item.items && item.items.length) { %>
+          <ul>
+            <% item.items.forEach(subItem => { %>
+              <li class="<%= isActive(subItem.link, currentPath) ? 'active' : '' %>">
+                <a href="<%= subItem.link %>">
+                  <% if (subItem.icon) { %>
+                    <i class="icon-<%= subItem.icon %>"></i>
+                  <% } %>
+                  <%= subItem.text %>
+                </a>
+              </li>
+            <% }); %>
+          </ul>
+        <% } %>
+      </li>
+    <% }); %>
+  </ul>
+</div>`;
+
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await fs.writeFile(outputPath, ejsTemplate);
+    console.log('✅ Successfully generated sidebar.ejs');
+  } catch (error) {
+    console.error('❌ Failed to generate EJS template:', error.message);
+    throw error;
+  }
+}
+
+
+
+//// Generate Sidebar
 async function generateSidebar() {
   console.log('Starting sidebar generation...');
   
@@ -72,6 +128,10 @@ async function generateSidebar() {
     await fs.mkdir(path.dirname(CONFIG.outputFile), { recursive: true });
     await fs.writeFile(CONFIG.outputFile, JSON.stringify(sidebar, null, 2));
     console.log('✅ Successfully generated sidebar');
+
+    // Add EJS conversion
+    const ejsOutputPath = path.join(__dirname, '../../../../templates/default/inc/sidebar/sidebar.ejs');
+    await convertToEjs(sidebar, ejsOutputPath);
     
     return sidebar;
   } catch (error) {
@@ -81,6 +141,11 @@ async function generateSidebar() {
     rl.close();
   }
 }
+
+
+//////
+
+
 
 async function processDirectory(currentDir, parentItems, currentPath) {
   try {
@@ -153,6 +218,9 @@ function formatName(name) {
     .replace(/_/g, ' ')
     .replace(/\b\w/g, l => l.toUpperCase());
 }
+
+
+
 
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
