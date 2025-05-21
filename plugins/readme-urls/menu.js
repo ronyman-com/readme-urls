@@ -164,7 +164,7 @@ async function processDirectory(currentDir, parentItems, currentPath) {
       if (item.isDirectory()) {
         const newItem = {
           text: formatName(item.name),
-          link: `/${relativePath}${await hasIndexFile(itemPath) ? '/index' : ''}`,
+          link: `/${relativePath}${await hasIndexFile(itemPath) ? '/#' : ''}`,
           icon: 'folder',
           items: []
         };
